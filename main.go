@@ -36,4 +36,5 @@ func main() {
 	token = client.Publish(BROKER_STREAMING_TOPIC, 0, false, "Hello, MQTT!")
 	token.Wait()
 	fmt.Println("Published: ", token.Error())
+
 }
