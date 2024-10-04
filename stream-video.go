@@ -72,11 +72,9 @@ func process(reader io.ReadCloser, client mqtt.Client, w, h int) {
 
 			sum += 1
 
-			sent := client.Publish("go-streaming", 0, false, buf).Wait()
+			client.Publish("go-streaming", 0, false, buf)
 			fmt.Printf("Sent %d frames for a total of 16264 (%d messages)\n", 30*sum, sum)
-			if !sent {
-				panic(fmt.Sprintf("failed to send frame"))
-			}
+
 			// Sleep for 1 second
 			time.Sleep(10 * time.Millisecond)
 

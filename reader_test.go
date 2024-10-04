@@ -71,7 +71,7 @@ func TestReadFromMQtt(t *testing.T) {
 			ffmpeg.KwArgs{"format": "rawvideo",
 				"pix_fmt": "rgb24", "s": fmt.Sprintf("%dx%d", 1920, 1080),
 			}).
-			Output("videos/out-huh.mp4", ffmpeg.KwArgs{"pix_fmt": "yuv420p"}).
+			Output("videos/out.mp4", ffmpeg.KwArgs{"pix_fmt": "yuv420p"}).
 			OverWriteOutput().
 			WithInput(pr).
 			Run()

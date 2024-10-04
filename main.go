@@ -20,7 +20,6 @@ func main() {
 	BROKER_USER := os.Getenv("BROKER_USER")
 	BROKER_PASSWORD := os.Getenv("BROKER_PASSWORD")
 	BROKER_STREAMING_CLIENT_ID := os.Getenv("BROKER_STREAMING_CLIENT_ID")
-	BROKER_STREAMING_TOPIC := os.Getenv("BROKER_STREAMING_TOPIC")
 
 	var clientOptions = mqtt.NewClientOptions()
 	clientOptions.AddBroker(fmt.Sprintf("%s:%s", BROKER_URL, BROKER_PORT))
@@ -33,8 +32,5 @@ func main() {
 	token.Wait()
 	fmt.Println("Connect: ", token.Error())
 
-	token = client.Publish(BROKER_STREAMING_TOPIC, 0, false, "Hello, MQTT!")
-	token.Wait()
-	fmt.Println("Published: ", token.Error())
-
+	RunExampleStream("videos/test.mp4", client)
 }
