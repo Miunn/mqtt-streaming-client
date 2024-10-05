@@ -45,7 +45,7 @@ func startFFmpegProcess1(infileName string, writer io.WriteCloser) <-chan error 
 		err := ffmpeg.Input(infileName).
 			Output("pipe:",
 				ffmpeg.KwArgs{
-					"format": "rawvideo", "pix_fmt": "rgb24",
+					"format": "mp4", "map": "0", "encoders": "copy",
 				}).
 			WithOutput(writer).
 			Run()
@@ -73,9 +73,7 @@ func process(reader io.ReadCloser, client mqtt.Client, w, h int) {
 			sum += 1
 
 			client.Publish("go-streaming", 0, false, buf)
-			fmt.Printf("Sent %d frames for a total of 16264 (%d messages)\n", 30*sum, sum)
 
-			// Sleep for 1 second
 			time.Sleep(10 * time.Millisecond)
 
 			if n != frameSize || err != nil {
