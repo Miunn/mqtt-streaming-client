@@ -5,7 +5,7 @@ go 1.22.7
 require (
 	github.com/aws/aws-sdk-go v1.55.5 // indirect
 	github.com/eclipse/paho.mqtt.golang v1.5.0 // indirect
-	github.com/f7ed0/golang_SIS_LWE v0.0.3 // indirect
+	github.com/f7ed0/golang_SIS_LWE v0.0.4 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect

@@ -24,8 +24,6 @@ type VideoPacket struct {
 	PacketNumber int    `msgpack:"packet_number"`
 	TotalPackets int    `msgpack:"total_packets"` // Use 0 if unknown
 	Data         []byte `msgpack:"data"`
-	A            []byte `msgpack:"a"`
-	V            []byte `msgpack:"v"`
 }
 
 func getVideoSize(fileName string) (int, int) {
