@@ -8,8 +8,25 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	sis "github.com/f7ed0/golang_SIS_LWE"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
+	"github.com/vmihailenco/msgpack/v5"
 )
+
+type VideoPacketSIS struct {
+	MsgPackPacket []byte `msgpack:"packet"`
+	A             []byte `msgpack:"a"`
+	V             []byte `msgpack:"v"`
+}
+
+type VideoPacket struct {
+	VideoID      string `msgpack:"video_id"`
+	PacketNumber int    `msgpack:"packet_number"`
+	TotalPackets int    `msgpack:"total_packets"` // Use 0 if unknown
+	Data         []byte `msgpack:"data"`
+	A            []byte `msgpack:"a"`
+	V            []byte `msgpack:"v"`
+}
 
 func getVideoSize(fileName string) (int, int) {
 	log.Println("Getting video size for", fileName)
@@ -78,9 +95,44 @@ func process(reader io.ReadCloser, client mqtt.Client, w, h int) {
 
 			sum += 1
 
-			client.Publish("go-streaming", 0, false, buf)
+			videoPacket := VideoPacket{
+				VideoID:      "test",
+				PacketNumber: sum,
+				TotalPackets: 0,
+				Data:         buf,
+			}
 
-			time.Sleep(10 * time.Millisecond)
+			msgPackPacket, err := msgpack.Marshal(videoPacket)
+
+			if err != nil {
+				panic(fmt.Sprintf("Msgpack error %s", err.Error()))
+			}
+
+			matrix_a, matrix_v, err := sis.Default.GenerateCheck(msgPackPacket)
+
+			if err != nil {
+				panic(fmt.Sprintf("Sis error %s", err.Error()))
+			}
+
+			//sis.Default.Validate(packet, matrix_a, matrix_v)
+
+			matrix_a_bytes := sis.SerializeInts(matrix_a)
+			matrix_v_bytes := sis.SerializeInts(matrix_v)
+
+			fmt.Printf("Serialize a %v\n", matrix_a_bytes)
+			fmt.Printf("Serialize v %v\n", matrix_v_bytes)
+
+			sis_packet := VideoPacketSIS{
+				MsgPackPacket: msgPackPacket,
+				A:             matrix_a_bytes,
+				V:             matrix_v_bytes,
+			}
+
+			sis_packet_bytes, err := msgpack.Marshal(sis_packet)
+
+			client.Publish("go-streaming", 0, false, sis_packet_bytes).Wait()
+
+			time.Sleep(500 * time.Millisecond)
 
 			if err != nil {
 				panic(fmt.Sprintf("write error: %d, %s", n, err))

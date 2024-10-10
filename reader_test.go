@@ -8,8 +8,10 @@ import (
 	"testing"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	sis "github.com/f7ed0/golang_SIS_LWE"
 	"github.com/joho/godotenv"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func loadClient() mqtt.Client {
@@ -51,7 +53,48 @@ func TestReadFromMQtt(t *testing.T) {
 	pr, pw := io.Pipe()
 	count := 0
 	token := client.Subscribe(BROKER_STREAMING_TOPIC, 0, func(client mqtt.Client, msg mqtt.Message) {
-		_, err := pw.Write(msg.Payload())
+		var packetSIS VideoPacketSIS
+
+		fmt.Printf("Received packet\n")
+		err := msgpack.Unmarshal(msg.Payload(), &packetSIS)
+		fmt.Printf("Received packet %v\n", packetSIS.V)
+
+		a, err := sis.DeserializeInts(packetSIS.A, sis.Default.M*sis.Default.N)
+		fmt.Printf("Deserialized a %v\n", a)
+
+		if err != nil {
+			fmt.Println("Error deserializing a", err.Error())
+			pw.Close()
+			return
+		}
+
+		v, err := sis.DeserializeInts(packetSIS.V, sis.Default.N*1)
+		fmt.Printf("Deserialized v\n")
+
+		if err != nil {
+			fmt.Println("Error deserializing v", err.Error())
+			pw.Close()
+			return
+		}
+
+		ok, err := sis.Default.Validate(packetSIS.MsgPackPacket, a, v)
+		fmt.Printf("Validate\n")
+
+		if err != nil {
+			panic(fmt.Sprintf("Validation error %s", err.Error()))
+		}
+
+		if !ok {
+			panic("Validation failed")
+		}
+
+		var packet VideoPacket
+
+		err = msgpack.Unmarshal(packetSIS.MsgPackPacket, &packet)
+		fmt.Printf("Unmarshalled\n")
+
+		_, err = pw.Write(packet.Data)
+		fmt.Printf("Wrote\n")
 
 		count++
 		if err != nil {
