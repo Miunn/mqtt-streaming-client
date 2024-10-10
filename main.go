@@ -32,5 +32,5 @@ func main() {
 	token.Wait()
 	fmt.Println("Connect: ", token.Error())
 
-	RunExampleStream("videos/testaudio.mp4", client)
+	RunExampleStream("videos/test.avi", client)
 }

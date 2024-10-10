@@ -54,7 +54,6 @@ func TestReadFromMQtt(t *testing.T) {
 		_, err := pw.Write(msg.Payload())
 
 		count++
-		fmt.Printf("Received %d messages\n", count)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -68,10 +67,10 @@ func TestReadFromMQtt(t *testing.T) {
 	done := make(chan error)
 	go func() {
 		err := ffmpeg.Input("pipe:",
-			ffmpeg.KwArgs{"format": "rawvideo",
-				"pix_fmt": "rgb24", "s": fmt.Sprintf("%dx%d", 1920, 1080),
+			ffmpeg.KwArgs{
+				"f": "avi",
 			}).
-			Output("videos/out.mp4", ffmpeg.KwArgs{"pix_fmt": "yuv420p"}).
+			Output("videos/out.avi").
 			OverWriteOutput().
 			WithInput(pr).
 			Run()

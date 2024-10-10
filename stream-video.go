@@ -45,7 +45,7 @@ func startFFmpegProcess1(infileName string, writer io.WriteCloser) <-chan error 
 		err := ffmpeg.Input(infileName).
 			Output("pipe:",
 				ffmpeg.KwArgs{
-					"format": "mp4", "map": "0", "encoders": "copy",
+					"format": "avi", "map": "0", "c": "copy",
 				}).
 			WithOutput(writer).
 			Run()
@@ -59,14 +59,20 @@ func startFFmpegProcess1(infileName string, writer io.WriteCloser) <-chan error 
 
 func process(reader io.ReadCloser, client mqtt.Client, w, h int) {
 	go func() {
-		frameSize := w * h * 3
+		frameSize := w * h
 		buf := make([]byte, frameSize, frameSize)
 		sum := 0
+		//buf_stream := bufio.NewReaderSize(reader, frameSize*3)
 		for {
+			/*for buf_stream.Buffered() < frameSize {
+
+				time.Sleep(1 * time.Millisecond)
+			}*/
 			n, err := io.ReadFull(reader, buf)
+			fmt.Println("Read", n, "bytes")
 			if n == 0 || err == io.EOF {
 				return
-			} else if n != frameSize || err != nil {
+			} else if err != nil {
 				panic(fmt.Sprintf("read error: %d, %s", n, err))
 			}
 
@@ -76,7 +82,7 @@ func process(reader io.ReadCloser, client mqtt.Client, w, h int) {
 
 			time.Sleep(10 * time.Millisecond)
 
-			if n != frameSize || err != nil {
+			if err != nil {
 				panic(fmt.Sprintf("write error: %d, %s", n, err))
 			}
 		}
