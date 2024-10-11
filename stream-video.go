@@ -9,6 +9,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	sis "github.com/f7ed0/golang_SIS_LWE"
+	"github.com/google/uuid"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -94,43 +95,21 @@ func process(reader io.ReadCloser, client mqtt.Client, w, h int) {
 			sum += 1
 
 			videoPacket := VideoPacket{
-				VideoID:      "test",
+				VideoID:      uuid.New().String(),
 				PacketNumber: sum,
 				TotalPackets: 0,
 				Data:         buf,
 			}
 
-			msgPackPacket, err := msgpack.Marshal(videoPacket)
+			videoPacketSIS, err := msgpack.Marshal(encodeSISPacket(videoPacket))
 
 			if err != nil {
 				panic(fmt.Sprintf("Msgpack error %s", err.Error()))
 			}
 
-			matrix_a, matrix_v, err := sis.Default.GenerateCheck(msgPackPacket)
+			client.Publish("go-streaming", 0, false, videoPacketSIS).Wait()
 
-			if err != nil {
-				panic(fmt.Sprintf("Sis error %s", err.Error()))
-			}
-
-			//sis.Default.Validate(packet, matrix_a, matrix_v)
-
-			matrix_a_bytes := sis.SerializeInts(matrix_a)
-			matrix_v_bytes := sis.SerializeInts(matrix_v)
-
-			fmt.Printf("Serialize a %v\n", matrix_a_bytes)
-			fmt.Printf("Serialize v %v\n", matrix_v_bytes)
-
-			sis_packet := VideoPacketSIS{
-				MsgPackPacket: msgPackPacket,
-				A:             matrix_a_bytes,
-				V:             matrix_v_bytes,
-			}
-
-			sis_packet_bytes, err := msgpack.Marshal(sis_packet)
-
-			client.Publish("go-streaming", 0, false, sis_packet_bytes).Wait()
-
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 
 			if err != nil {
 				panic(fmt.Sprintf("write error: %d, %s", n, err))
@@ -138,6 +117,34 @@ func process(reader io.ReadCloser, client mqtt.Client, w, h int) {
 		}
 	}()
 	return
+}
+
+func encodeSISPacket(packet VideoPacket) VideoPacketSIS {
+	packetSIS := VideoPacketSIS{
+		MsgPackPacket: []byte{},
+		A:             []byte{},
+		V:             []byte{},
+	}
+
+	msgPackPacket, err := msgpack.Marshal(packet)
+
+	if err != nil {
+		panic(fmt.Sprintf("Msgpack error %s", err.Error()))
+	}
+
+	matrix_a, matrix_v, err := sis.Default.GenerateCheck(msgPackPacket)
+
+	if err != nil {
+		panic(fmt.Sprintf("Sis error %s", err.Error()))
+	}
+
+	matrix_a_bytes := sis.SerializeInts(matrix_a)
+	matrix_v_bytes := sis.SerializeInts(matrix_v)
+
+	packetSIS.MsgPackPacket = msgPackPacket
+	packetSIS.A = matrix_a_bytes
+	packetSIS.V = matrix_v_bytes
+	return packetSIS
 }
 
 func RunExampleStream(inFile string, client mqtt.Client) {

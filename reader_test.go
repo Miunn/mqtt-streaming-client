@@ -60,7 +60,6 @@ func TestReadFromMQtt(t *testing.T) {
 		fmt.Printf("Received packet %v\n", packetSIS.V)
 
 		a, err := sis.DeserializeInts(packetSIS.A, sis.Default.M*sis.Default.N)
-		fmt.Printf("Deserialized a %v\n", a)
 
 		if err != nil {
 			fmt.Println("Error deserializing a", err.Error())
@@ -69,7 +68,6 @@ func TestReadFromMQtt(t *testing.T) {
 		}
 
 		v, err := sis.DeserializeInts(packetSIS.V, sis.Default.N*1)
-		fmt.Printf("Deserialized v\n")
 
 		if err != nil {
 			fmt.Println("Error deserializing v", err.Error())
