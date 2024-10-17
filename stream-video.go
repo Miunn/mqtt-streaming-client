@@ -94,8 +94,9 @@ func process(reader io.ReadCloser, client mqtt.Client, w, h int) {
 
 			sum += 1
 
+			videoId := uuid.New().String()
 			videoPacket := VideoPacket{
-				VideoID:      uuid.New().String(),
+				VideoID:      videoId,
 				PacketNumber: sum,
 				TotalPackets: 0,
 				Data:         buf,
@@ -107,7 +108,7 @@ func process(reader io.ReadCloser, client mqtt.Client, w, h int) {
 				panic(fmt.Sprintf("Msgpack error %s", err.Error()))
 			}
 
-			client.Publish("go-streaming", 0, false, videoPacketSIS).Wait()
+			client.Publish(fmt.Sprintf("videos/stream/%s", videoId), 0, false, videoPacketSIS).Wait()
 
 			time.Sleep(100 * time.Millisecond)
 
