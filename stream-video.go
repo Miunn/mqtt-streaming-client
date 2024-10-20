@@ -77,6 +77,7 @@ func process(reader io.ReadCloser, client mqtt.Client, w, h int) {
 	go func() {
 		frameSize := w * h
 		buf := make([]byte, frameSize, frameSize)
+		videoId := uuid.New().String()
 		sum := 0
 		//buf_stream := bufio.NewReaderSize(reader, frameSize*3)
 		for {
@@ -94,7 +95,6 @@ func process(reader io.ReadCloser, client mqtt.Client, w, h int) {
 
 			sum += 1
 
-			videoId := uuid.New().String()
 			videoPacket := VideoPacket{
 				VideoID:      videoId,
 				PacketNumber: sum,
@@ -108,7 +108,7 @@ func process(reader io.ReadCloser, client mqtt.Client, w, h int) {
 				panic(fmt.Sprintf("Msgpack error %s", err.Error()))
 			}
 
-			client.Publish(fmt.Sprintf("videos/stream/%s", videoId), 0, false, videoPacketSIS).Wait()
+			client.Publish(fmt.Sprintf("video/stream/%s", videoId), 0, false, videoPacketSIS).Wait()
 
 			time.Sleep(100 * time.Millisecond)
 
