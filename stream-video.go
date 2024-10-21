@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	sis "github.com/f7ed0/golang_SIS_LWE"
@@ -33,7 +32,7 @@ func getVideoSize(fileName string) (int, int) {
 	if err != nil {
 		panic(err)
 	}
-	log.Println("got video info", data)
+	log.Println("Got video info:", data)
 	type VideoInfo struct {
 		Streams []struct {
 			CodecType string `json:"codec_type"`
@@ -55,17 +54,20 @@ func getVideoSize(fileName string) (int, int) {
 }
 
 func startFFmpegProcess1(infileName string, writer io.WriteCloser) <-chan error {
-	log.Println("Starting ffmpeg process1")
+	log.Println("Starting FFmpeg process with fragmented MP4 format")
 	done := make(chan error)
 	go func() {
 		err := ffmpeg.Input(infileName).
 			Output("pipe:",
 				ffmpeg.KwArgs{
-					"format": "avi", "map": "0", "c": "copy",
+					"format":   "mp4",
+					"movflags": "frag_keyframe+empty_moov+default_base_moof",
+					"map":      "0",
+					"c":        "copy",
 				}).
 			WithOutput(writer).
 			Run()
-		log.Println("ffmpeg process1 done")
+		log.Println("FFmpeg process done")
 		_ = writer.Close()
 		done <- err
 		close(done)
@@ -75,49 +77,45 @@ func startFFmpegProcess1(infileName string, writer io.WriteCloser) <-chan error 
 
 func process(reader io.ReadCloser, client mqtt.Client, w, h int) {
 	go func() {
-		frameSize := w * h
-		buf := make([]byte, frameSize, frameSize)
-		videoId := uuid.New().String()
-		sum := 0
-		//buf_stream := bufio.NewReaderSize(reader, frameSize*3)
+		frameSize := w * h * 3
+		buf := make([]byte, frameSize)
+		videoID := uuid.New().String()
+		packetNumber := 0
+		totalFrames := 0
+
 		for {
-			/*for buf_stream.Buffered() < frameSize {
-
-				time.Sleep(1 * time.Millisecond)
-			}*/
 			n, err := io.ReadFull(reader, buf)
-			fmt.Println("Read", n, "bytes")
-			if n == 0 || err == io.EOF {
-				return
-			} else if err != nil {
-				panic(fmt.Sprintf("read error: %d, %s", n, err))
+			if n > 0 {
+				packetNumber++
+				totalFrames++
+				log.Printf("Frame %d: Read %d bytes\n", packetNumber, n)
+
+				videoPacket := VideoPacket{
+					VideoID:      videoID,
+					PacketNumber: packetNumber,
+					TotalPackets: 0,
+					Data:         append([]byte{}, buf...),
+				}
+
+				videoPacketSIS, err := msgpack.Marshal(encodeSISPacket(videoPacket))
+				if err != nil {
+					log.Fatalf("Msgpack error: %s", err.Error())
+				}
+
+				client.Publish(fmt.Sprintf("video/stream/%s", videoID), 0, false, videoPacketSIS).Wait()
+
+				log.Printf("Total Frames Sent: %d\n", totalFrames)
 			}
-
-			sum += 1
-
-			videoPacket := VideoPacket{
-				VideoID:      videoId,
-				PacketNumber: sum,
-				TotalPackets: 0,
-				Data:         buf,
-			}
-
-			videoPacketSIS, err := msgpack.Marshal(encodeSISPacket(videoPacket))
 
 			if err != nil {
-				panic(fmt.Sprintf("Msgpack error %s", err.Error()))
-			}
-
-			client.Publish(fmt.Sprintf("video/stream/%s", videoId), 0, false, videoPacketSIS).Wait()
-
-			time.Sleep(100 * time.Millisecond)
-
-			if err != nil {
-				panic(fmt.Sprintf("write error: %d, %s", n, err))
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
+					log.Printf("Finished processing video. Total frames: %d\n", totalFrames)
+					return
+				}
+				log.Fatalf("Read error: %s", err)
 			}
 		}
 	}()
-	return
 }
 
 func encodeSISPacket(packet VideoPacket) VideoPacketSIS {
@@ -128,15 +126,13 @@ func encodeSISPacket(packet VideoPacket) VideoPacketSIS {
 	}
 
 	msgPackPacket, err := msgpack.Marshal(packet)
-
 	if err != nil {
-		panic(fmt.Sprintf("Msgpack error %s", err.Error()))
+		panic(fmt.Sprintf("Msgpack error: %s", err.Error()))
 	}
 
 	matrix_a, matrix_v, err := sis.Default.GenerateCheck(msgPackPacket)
-
 	if err != nil {
-		panic(fmt.Sprintf("Sis error %s", err.Error()))
+		panic(fmt.Sprintf("SIS error: %s", err.Error()))
 	}
 
 	matrix_a_bytes := sis.SerializeInts(matrix_a)
@@ -150,7 +146,7 @@ func encodeSISPacket(packet VideoPacket) VideoPacketSIS {
 
 func RunExampleStream(inFile string, client mqtt.Client) {
 	w, h := getVideoSize(inFile)
-	log.Println(w, h)
+	log.Printf("Video Width: %d, Height: %d\n", w, h)
 
 	pr1, pw1 := io.Pipe()
 
@@ -161,8 +157,8 @@ func RunExampleStream(inFile string, client mqtt.Client) {
 	if err != nil {
 		panic(err)
 	}
-	log.Println("Done")
+	log.Println("FFmpeg process completed")
 
-	client.Publish("go-streaming", 0, false, "EOSTREAMING").Wait()
+	client.Publish("go-streaming", 0, false, []byte("EOSTREAMING")).Wait()
 	log.Println("Sent EOS")
 }
